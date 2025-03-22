@@ -1,0 +1,38 @@
+body {
+    background-color: #F5E8C7;
+    color: #5C4033;
+    font-family: Helvetica, sans-serif;
+    margin: 0;
+    padding: 10px;
+}
+.container {
+    max-width: 100%;
+    padding: 10px;
+}
+h1, h2 {
+    color: #4A704A;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #D9C2A7;
+}
+th, td {
+    border: 1px solid #8A7F5A;
+    padding: 5px;
+    text-align: center;
+}
+button {
+    background-color: #8A7F5A;
+    color: #F5E8C7;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #4A704A;
+}
+.chart {
+    width: 100%;
+    height: 200px;
+}

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ ticker }} Details</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ ticker }} Details</h1>
+        <p>Current Price: ${{ price }}</p>
+
+        <h2>Level 2 Data</h2>
+        <table>
+            <tr><th>Bids</th><th>Asks</th></tr>
+            {% for bid, ask in zip(l2.bids, l2.asks) %}
+                <tr><td>{{ bid[0] }} ({{ bid[1] }})</td><td>{{ ask[0] }} ({{ ask[1] }})</td></tr>
+            {% endfor %}
+        </table>
+
+        <h2>News</h2>
+        <ul>
+            {% for article in news %}
+                <li>{{ article.title }} - {{ article.source.name }}</li>
+            {% endfor %}
+        </ul>
+
+        <canvas id="priceChart" class="chart"></canvas>
+        <button onclick="window.location.href='/'">Back</button>
+    </div>
+
+    <script>
+        fetch('/trade/{{ ticker }}').then(response => response.json()).then(data => {
+            const ctx = document.getElementById("priceChart").getContext("2d");
+            new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: Array(50).fill().map((_, i) => i),
+                    datasets: [{
+                        label: "Price",
+                        data: data.df.Close,
+                        borderColor: "#4A704A",
+                        backgroundColor: "#D9C2A7"
+                    }]
+                },
+                options: { scales: { y: { beginAtZero: false } } }
+            });
+        });
+    </script>
+</body>
+</html>
