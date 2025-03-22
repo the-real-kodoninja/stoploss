@@ -16,7 +16,7 @@ def fetch_data(ticker, broker_type="alpaca", period="1d", interval="1m"):
         return df
 
 def fetch_level2_data(ticker):
-    return {"bids": [(150.50, 100), (150.40, 200), (150.30, 150)], "asks": [(150.60, 120), (150.70, 180), (150.80, 90)]}
+    return {"bids": [(150.50, 100), (150.40, 200)], "asks": [(150.60, 120), (150.70, 180)]}
 
 def fetch_news(ticker):
     url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={NEWSAPI_KEY}"
@@ -24,8 +24,7 @@ def fetch_news(ticker):
     return response.json().get("articles", [])[:5] if response.status_code == 200 else []
 
 def fetch_sentiment(ticker):
-    # Simulated X sentiment analysis; requires real X API integration
-    url = f"https://api.x.com/2/tweets/search/recent?query={ticker}&max_results=100"  # Replace with actual endpoint
+    url = f"https://api.x.com/2/tweets/search/recent?query={ticker}&max_results=100"
     headers = {"Authorization": f"Bearer {X_API_KEY}"}
     response = requests.get(url, headers=headers)
     if response.status_code == 200:

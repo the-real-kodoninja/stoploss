@@ -5,10 +5,10 @@ from core.broker_api import Broker
 from core.data_feed import fetch_data, fetch_level2_data, fetch_news, fetch_sentiment
 from core.logger import TradeLogger
 from core.portfolio import Portfolio
-from core.ai_suggestions import suggest_trades
+from core.nimbus_ai import NimbusAI
 from config.rules import *
 
-class StopLossPlatform:
+class NimbusTraderPlatform:
     def __init__(self):
         self.brokers = {}
         self.watchlist = ["AAPL", "BTCUSDT"]
@@ -17,6 +17,7 @@ class StopLossPlatform:
         self.portfolio = Portfolio()
         self.max_trades = MAX_TRADES
         self.max_trade_duration = MAX_TRADE_DURATION
+        self.nimbus_ai = NimbusAI(self)
 
     def add_broker(self, broker_name, credentials, broker_type="alpaca"):
         self.brokers[broker_name] = Broker(broker_name, credentials, broker_type)
@@ -37,7 +38,7 @@ class StopLossPlatform:
             print(f"Broker {broker_name} not linked.")
             return
         
-        if len(self.active_trades) >= self.max_trades:
+        if len(self.active_trades) >= self.max_trades and not self.nimbus_ai.is_managing():
             print("Max trades reached.")
             return
 
@@ -88,32 +89,20 @@ class StopLossPlatform:
                     stop_loss = lowest_price * (1 + trade["stop_loss"] / entry_price)
 
             if trade_type == "long":
-                if current_price <= stop_loss:
+                if current_price <= stop_loss or profit >= take_profit:
                     func = broker.sell_option if option else broker.sell
                     func(ticker, shares, current_price, strike=trade["strike"], expiry=trade["expiry"]) if option else func(ticker, shares, current_price)
-                    self.logger.log_exit(ticker, "sell", shares, current_price, profit, "stop_loss")
-                    self.portfolio.remove_position(ticker, shares)
-                    del self.active_trades[ticker]
-                    playsound("assets/alert.wav", block=False)
-                elif profit >= take_profit:
-                    func = broker.sell_option if option else broker.sell
-                    func(ticker, shares, current_price, strike=trade["strike"], expiry=trade["expiry"]) if option else func(ticker, shares, current_price)
-                    self.logger.log_exit(ticker, "sell", shares, current_price, profit, "take_profit")
+                    reason = "stop_loss" if current_price <= stop_loss else "take_profit"
+                    self.logger.log_exit(ticker, "sell", shares, current_price, profit, reason)
                     self.portfolio.remove_position(ticker, shares)
                     del self.active_trades[ticker]
                     playsound("assets/alert.wav", block=False)
             else:  # Short
-                if current_price >= stop_loss:
+                if current_price >= stop_loss or profit >= take_profit:
                     func = broker.cover_option if option else broker.cover
                     func(ticker, shares, current_price, strike=trade["strike"], expiry=trade["expiry"]) if option else func(ticker, shares, current_price)
-                    self.logger.log_exit(ticker, "cover", shares, current_price, profit, "stop_loss")
-                    self.portfolio.remove_position(ticker, -shares)
-                    del self.active_trades[ticker]
-                    playsound("assets/alert.wav", block=False)
-                elif profit >= take_profit:
-                    func = broker.cover_option if option else broker.cover
-                    func(ticker, shares, current_price, strike=trade["strike"], expiry=trade["expiry"]) if option else func(ticker, shares, current_price)
-                    self.logger.log_exit(ticker, "cover", shares, current_price, profit, "take_profit")
+                    reason = "stop_loss" if current_price >= stop_loss else "take_profit"
+                    self.logger.log_exit(ticker, "cover", shares, current_price, profit, reason)
                     self.portfolio.remove_position(ticker, -shares)
                     del self.active_trades[ticker]
                     playsound("assets/alert.wav", block=False)
@@ -129,5 +118,5 @@ class StopLossPlatform:
 
             time.sleep(1)
 
-    def get_ai_suggestions(self):
-        return suggest_trades(self.watchlist, self.brokers)
+    def activate_nimbus_ai(self):
+        self.nimbus_ai.start_autonomous_trading()

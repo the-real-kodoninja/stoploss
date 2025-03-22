@@ -3,27 +3,26 @@ from tkinter import ttk, messagebox
 from ui.styles import EARTH_TONES
 from ui.widgets import TradeEntryForm, Level2Display, WatchlistManager, SettingsPanel
 from ui.charts import TradeChart
-from core.data_feed import calculate_spread, calculate_win_loss_ratio, fetch_news, fetch_sentiment
+from core.data_feed import fetch_news, fetch_sentiment
 from core.backtest import backtest_strategy
 from core.scanner import scan_stocks
 from config.settings import BROKER_CREDENTIALS, HOTKEYS, SCANNER_CRITERIA
 
-class StopLossApp(tk.Tk):
+class NimbusTraderApp(tk.Tk):
     def __init__(self, platform):
         super().__init__()
         self.platform = platform
-        self.title("Ultimate Stop Loss Platform")
+        self.title("NimbusTrader - Ultimate Trading Platform")
         self.geometry("1600x1200")
         self.configure(bg=EARTH_TONES["bg"])
 
         for name, creds in BROKER_CREDENTIALS.items():
             self.platform.add_broker(name, creds, "binance" if "Binance" in name else "alpaca")
 
-        # Multi-monitor support: Create detachable windows
         self.main_frame = tk.Frame(self, bg=EARTH_TONES["bg"])
         self.main_frame.pack(fill="both", expand=True)
 
-        tk.Label(self.main_frame, text="Ultimate Stop Loss Dashboard", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=("Helvetica", 16, "bold")).pack(pady=10)
+        tk.Label(self.main_frame, text="NimbusTrader Dashboard", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=("Helvetica", 16, "bold")).pack(pady=10)
 
         self.trade_form = TradeEntryForm(self.main_frame, self.enter_trade, list(self.platform.brokers.keys()))
         self.trade_form.pack(pady=10)
@@ -54,27 +53,17 @@ class StopLossApp(tk.Tk):
         self.profit_label.pack(side="left", padx=5)
         self.margin_label = tk.Label(self.analytics_frame, text="Margin: $0", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
         self.margin_label.pack(side="left", padx=5)
-        self.spread_label = tk.Label(self.analytics_frame, text="Spread: $0", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
-        self.spread_label.pack(side="left", padx=5)
-        self.win_loss_label = tk.Label(self.analytics_frame, text="W/L Ratio: 0%", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
-        self.win_loss_label.pack(side="left", padx=5)
         self.risk_label = tk.Label(self.analytics_frame, text="Risk: $0", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
         self.risk_label.pack(side="left", padx=5)
-        self.monte_carlo_label = tk.Label(self.analytics_frame, text="Monte Carlo VaR: $0", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
-        self.monte_carlo_label.pack(side="left", padx=5)
 
         self.level2_display = Level2Display(self.main_frame)
         self.level2_display.pack(pady=10)
         self.trade_chart = TradeChart(self.main_frame)
         self.trade_chart.pack(pady=10)
 
-        tk.Label(self.main_frame, text="News", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        tk.Label(self.main_frame, text="News & Sentiment", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
         self.news_text = tk.Text(self.main_frame, height=5, bg=EARTH_TONES["highlight"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
         self.news_text.pack(fill="x", padx=10)
-
-        tk.Label(self.main_frame, text="AI Suggestions", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
-        self.ai_text = tk.Text(self.main_frame, height=5, bg=EARTH_TONES["highlight"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
-        self.ai_text.pack(fill="x", padx=10)
 
         tk.Label(self.main_frame, text="Scanner Results", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
         self.scanner_tree = ttk.Treeview(self.main_frame, columns=("Ticker", "Price", "Volume", "RSI"), show="headings")
@@ -92,6 +81,7 @@ class StopLossApp(tk.Tk):
         tk.Button(self.main_frame, text="Export Analytics", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.export_analytics).pack(pady=5)
         tk.Button(self.main_frame, text="Run Backtest", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.run_backtest).pack(pady=5)
         tk.Button(self.main_frame, text="Run Scanner", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.run_scanner).pack(pady=5)
+        tk.Button(self.main_frame, text="Activate Nimbus.AI", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.activate_nimbus).pack(pady=5)
         tk.Button(self.main_frame, text="Detach Window", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.detach_window).pack(pady=5)
 
         self.bind(HOTKEYS["buy"], lambda e: self.hotkey_buy())
@@ -155,25 +145,14 @@ class StopLossApp(tk.Tk):
         if self.watchlist_tree.selection():
             ticker = self.watchlist_tree.item(self.watchlist_tree.selection(), "values")[0]
             broker_type = "binance" if "USDT" in ticker else "alpaca"
-            spread = calculate_spread(fetch_level2_data(ticker))
             risk = self.platform.portfolio.calculate_risk(ticker, broker_type)
-            monte_carlo_var = self.platform.portfolio.monte_carlo_risk(ticker, broker_type)
         else:
-            spread = risk = monte_carlo_var = 0
-        win_loss_ratio = calculate_win_loss_ratio() * 100
+            risk = 0
 
         self.cash_label.config(text=f"Cash: ${total_cash:.2f}")
         self.profit_label.config(text=f"Profit: ${total_profit:.2f}", fg=EARTH_TONES["profit"] if total_profit >= 0 else EARTH_TONES["loss"])
         self.margin_label.config(text=f"Margin: ${total_margin:.2f}")
-        self.spread_label.config(text=f"Spread: ${spread:.2f}")
-        self.win_loss_label.config(text=f"W/L Ratio: {win_loss_ratio:.1f}%")
         self.risk_label.config(text=f"Risk: ${risk:.2f}")
-        self.monte_carlo_label.config(text=f"Monte Carlo VaR: ${monte_carlo_var:.2f}")
-
-        ai_suggestions = self.platform.get_ai_suggestions()
-        self.ai_text.delete(1.0, tk.END)
-        for suggestion in ai_suggestions:
-            self.ai_text.insert(tk.END, f"{suggestion['ticker']}: {suggestion['action']} (Confidence: {suggestion['confidence']:.2f})\n")
 
     def update_news(self, ticker):
         news = fetch_news(ticker)
@@ -210,6 +189,10 @@ class StopLossApp(tk.Tk):
             self.scanner_tree.delete(item)
         for _, row in results.iterrows():
             self.scanner_tree.insert("", "end", values=(row["ticker"], row["price"], row["volume"], row["rsi"]))
+
+    def activate_nimbus(self):
+        self.platform.activate_nimbus_ai()
+        messagebox.showinfo("Nimbus.AI", "Autonomous trading activated!")
 
     def detach_window(self):
         new_window = tk.Toplevel(self, bg=EARTH_TONES["bg"])
