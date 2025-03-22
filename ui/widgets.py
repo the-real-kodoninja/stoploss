@@ -32,16 +32,27 @@ class TradeEntryForm(tk.Frame):
         self.broker_menu = ttk.OptionMenu(self, self.broker_var, brokers[0] if brokers else "", *brokers)
         self.broker_menu.grid(row=5, column=1)
 
-        tk.Button(self, text="Buy", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.submit_buy).grid(row=6, column=0)
-        tk.Button(self, text="Short", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.submit_short).grid(row=6, column=1)
+        tk.Label(self, text="Order Type:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).grid(row=6, column=0)
+        self.order_type_var = tk.StringVar(value="limit")
+        ttk.OptionMenu(self, self.order_type_var, "limit", "market").grid(row=6, column=1)
+
+        self.trailing_stop_var = tk.BooleanVar()
+        tk.Checkbutton(self, text="Trailing Stop", variable=self.trailing_stop_var, bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"]).grid(row=7, column=0)
+        self.oco_var = tk.BooleanVar()
+        tk.Checkbutton(self, text="OCO", variable=self.oco_var, bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"]).grid(row=7, column=1)
+
+        tk.Button(self, text="Buy", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.submit_buy).grid(row=8, column=0)
+        tk.Button(self, text="Short", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.submit_short).grid(row=8, column=1)
 
     def submit_buy(self):
         self.submit_callback(self.ticker_entry.get(), int(self.shares_entry.get()), float(self.price_entry.get()), "buy",
-                             self.broker_var.get(), float(self.stop_loss_entry.get()), float(self.take_profit_entry.get()))
+                             self.broker_var.get(), float(self.stop_loss_entry.get()), float(self.take_profit_entry.get()),
+                             self.order_type_var.get(), self.trailing_stop_var.get(), self.oco_var.get())
 
     def submit_short(self):
         self.submit_callback(self.ticker_entry.get(), int(self.shares_entry.get()), float(self.price_entry.get()), "short",
-                             self.broker_var.get(), float(self.stop_loss_entry.get()), float(self.take_profit_entry.get()))
+                             self.broker_var.get(), float(self.stop_loss_entry.get()), float(self.take_profit_entry.get()),
+                             self.order_type_var.get(), self.trailing_stop_var.get(), self.oco_var.get())
 
 class Level2Display(tk.Frame):
     def __init__(self, parent):
@@ -70,7 +81,7 @@ class SettingsPanel(tk.Toplevel):
         super().__init__(parent)
         self.platform = platform
         self.title("Settings")
-        self.geometry("400x400")
+        self.geometry("400x600")
         self.configure(bg=EARTH_TONES["bg"])
 
         tk.Label(self, text="Trading Rules", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack(pady=5)
@@ -98,16 +109,27 @@ class SettingsPanel(tk.Toplevel):
         self.broker_type_var = tk.StringVar(value="alpaca")
         tk.OptionMenu(self, self.broker_type_var, "alpaca", "binance").pack()
 
+        tk.Label(self, text="Hotkeys", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack(pady=5)
+        tk.Label(self, text="Buy Hotkey (e.g., <Control-b>):", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.buy_hotkey_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.buy_hotkey_entry.pack()
+
+        tk.Label(self, text="Sell Hotkey (e.g., <Control-s>):", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.sell_hotkey_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.sell_hotkey_entry.pack()
+
         tk.Button(self, text="Add Broker", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.add_broker).pack(pady=5)
-        tk.Button(self, text="Save Rules", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.save_rules).pack(pady=5)
+        tk.Button(self, text="Save Settings", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.save_settings).pack(pady=5)
 
     def add_broker(self):
         name = self.broker_name_entry.get()
         credentials = {"api_key": self.api_key_entry.get(), "api_secret": self.api_secret_entry.get()}
         self.platform.add_broker(name, credentials, self.broker_type_var.get())
-        self.destroy()
 
-    def save_rules(self):
+    def save_settings(self):
         self.platform.update_rule("MAX_TRADES", int(self.max_trades_var.get()))
         self.platform.update_rule("MAX_TRADE_DURATION", int(self.max_duration_var.get()))
+        hotkeys = {"buy": self.buy_hotkey_entry.get(), "sell": self.sell_hotkey_entry.get()}
+        with open("config/settings.py", "a") as f:
+            f.write(f"\nHOTKEYS = {hotkeys}")
         self.destroy()

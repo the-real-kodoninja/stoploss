@@ -3,21 +3,22 @@ from tkinter import ttk
 from ui.styles import EARTH_TONES
 from ui.widgets import TradeEntryForm, Level2Display, WatchlistManager, SettingsPanel
 from ui.charts import TradeChart
-from core.data_feed import calculate_spread, calculate_win_loss_ratio
-from config.settings import BROKER_CREDENTIALS
+from core.data_feed import calculate_spread, calculate_win_loss_ratio, fetch_news
+from core.backtest import backtest_strategy
+from config.settings import BROKER_CREDENTIALS, HOTKEYS
 
 class StopLossApp(tk.Tk):
     def __init__(self, platform):
         super().__init__()
         self.platform = platform
-        self.title("Stop Loss Platform")
-        self.geometry("1200x900")
+        self.title("Ultimate Stop Loss Platform")
+        self.geometry("1400x1000")
         self.configure(bg=EARTH_TONES["bg"])
 
         for name, creds in BROKER_CREDENTIALS.items():
             self.platform.add_broker(name, creds, "binance" if "Binance" in name else "alpaca")
 
-        tk.Label(self, text="Stop Loss Dashboard", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=("Helvetica", 16, "bold")).pack(pady=10)
+        tk.Label(self, text="Ultimate Stop Loss Dashboard", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=("Helvetica", 16, "bold")).pack(pady=10)
 
         self.trade_form = TradeEntryForm(self, self.enter_trade, list(self.platform.brokers.keys()))
         self.trade_form.pack(pady=10)
@@ -52,19 +53,39 @@ class StopLossApp(tk.Tk):
         self.spread_label.pack(side="left", padx=5)
         self.win_loss_label = tk.Label(self.analytics_frame, text="W/L Ratio: 0%", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
         self.win_loss_label.pack(side="left", padx=5)
+        self.risk_label = tk.Label(self.analytics_frame, text="Risk: $0", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
+        self.risk_label.pack(side="left", padx=5)
 
         self.level2_display = Level2Display(self)
         self.level2_display.pack(pady=10)
         self.trade_chart = TradeChart(self)
         self.trade_chart.pack(pady=10)
 
+        tk.Label(self, text="News", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.news_text = tk.Text(self, height=5, bg=EARTH_TONES["highlight"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"])
+        self.news_text.pack(fill="x", padx=10)
+
         tk.Button(self, text="Settings", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.open_settings).pack(pady=5)
         tk.Button(self, text="Export Analytics", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.export_analytics).pack(pady=5)
+        tk.Button(self, text="Run Backtest", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.run_backtest).pack(pady=5)
+
+        self.bind(HOTKEYS["buy"], lambda e: self.hotkey_buy())
+        self.bind(HOTKEYS["sell"], lambda e: self.hotkey_sell())
 
         self.after(1000, self.refresh_ui)
 
-    def enter_trade(self, ticker, shares, price, action, broker, stop_loss_percent, take_profit):
-        self.platform.enter_trade(ticker, shares, price, action, broker, stop_loss_percent, take_profit)
+    def enter_trade(self, ticker, shares, price, action, broker, stop_loss_percent, take_profit, order_type, trailing_stop, oco):
+        self.platform.enter_trade(ticker, shares, price, action, broker, stop_loss_percent, take_profit, order_type, trailing_stop, oco)
+
+    def hotkey_buy(self):
+        self.trade_form.submit_buy()
+
+    def hotkey_sell(self):
+        if self.trades_tree.selection():
+            ticker = self.trades_tree.item(self.trades_tree.selection(), "values")[0]
+            trade = self.platform.active_trades[ticker]
+            broker = self.platform.brokers[trade["broker"]]
+            broker.sell(ticker, trade["shares"], fetch_data(ticker, broker.broker_type)['Close'].iloc[-1])
 
     def add_to_watchlist(self, ticker):
         self.platform.add_to_watchlist(ticker)
@@ -84,6 +105,7 @@ class StopLossApp(tk.Tk):
             broker_type = "binance" if "USDT" in ticker else "alpaca"
             self.level2_display.update(ticker)
             self.trade_chart.update_chart(ticker, broker_type)
+            self.update_news(ticker)
 
     def update_watchlist(self):
         for item in self.watchlist_tree.get_children():
@@ -106,9 +128,11 @@ class StopLossApp(tk.Tk):
             total_profit = sum(float(line[6]) for line in lines if line[6])
         if self.watchlist_tree.selection():
             ticker = self.watchlist_tree.item(self.watchlist_tree.selection(), "values")[0]
+            broker_type = "binance" if "USDT" in ticker else "alpaca"
             spread = calculate_spread(fetch_level2_data(ticker))
+            risk = self.platform.portfolio.calculate_risk(ticker, broker_type)
         else:
-            spread = 0
+            spread = risk = 0
         win_loss_ratio = calculate_win_loss_ratio() * 100
 
         self.cash_label.config(text=f"Cash: ${total_cash:.2f}")
@@ -116,12 +140,27 @@ class StopLossApp(tk.Tk):
         self.margin_label.config(text=f"Margin: ${total_margin:.2f}")
         self.spread_label.config(text=f"Spread: ${spread:.2f}")
         self.win_loss_label.config(text=f"W/L Ratio: {win_loss_ratio:.1f}%")
+        self.risk_label.config(text=f"Risk: ${risk:.2f}")
+
+    def update_news(self, ticker):
+        news = fetch_news(ticker)
+        self.news_text.delete(1.0, tk.END)
+        for article in news:
+            self.news_text.insert(tk.END, f"{article['title']} - {article['source']['name']}\n")
 
     def open_settings(self):
         SettingsPanel(self, self.platform)
 
     def export_analytics(self):
         self.platform.logger.export_analytics()
+
+    def run_backtest(self):
+        if self.watchlist_tree.selection():
+            ticker = self.watchlist_tree.item(self.watchlist_tree.selection(), "values")[0]
+            broker_type = "binance" if "USDT" in ticker else "alpaca"
+            result = backtest_strategy(ticker, broker_type)
+            result.to_csv(f"reports/backtest_{ticker}.csv")
+            tk.messagebox.showinfo("Backtest", f"Backtest for {ticker} saved to reports/backtest_{ticker}.csv")
 
     def refresh_ui(self):
         self.update_watchlist()
