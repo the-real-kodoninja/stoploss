@@ -1,54 +1,50 @@
 import pandas as pd
 import numpy as np
-import ta  # Technical Analysis library
+import talib  # Full TA-Lib integration
 
 def analyze_all(df):
-    """Implements every known trading analysis technique."""
     features = pd.DataFrame(index=df.index)
     
     # Price and Volume
     features["Close"] = df["Close"]
     features["Volume"] = df["Volume"]
     
-    # Japanese Candlesticks (all 100+ patterns via ta-lib or manual logic)
-    features["Doji"] = (df["Open"] == df["Close"]).astype(int)
-    features["Hammer"] = ((df["Close"] > df["Open"]) & (df["Low"] < df["Open"] - 0.5 * (df["High"] - df["Low"]))).astype(int)
-    features["Engulfing"] = ta.candlestick.cdl_engulfing(df["Open"], df["High"], df["Low"], df["Close"])
-    # Add more: Marubozu, Shooting Star, Harami, etc.
-
+    # Full TA-Lib Candlestick Patterns
+    for pattern in talib.get_function_groups()["Pattern Recognition"]:
+        features[pattern] = getattr(talib, pattern)(df["Open"], df["High"], df["Low"], df["Close"])
+    
     # Moving Averages
-    features["SMA_20"] = ta.trend.sma_indicator(df["Close"], window=20)
-    features["EMA_9"] = ta.trend.ema_indicator(df["Close"], window=9)
-    features["EMA_21"] = ta.trend.ema_indicator(df["Close"], window=21)
+    features["SMA_20"] = talib.SMA(df["Close"], timeperiod=20)
+    features["EMA_9"] = talib.EMA(df["Close"], timeperiod=9)
+    features["EMA_21"] = talib.EMA(df["Close"], timeperiod=21)
 
     # Oscillators
-    features["RSI"] = ta.momentum.rsi(df["Close"])
-    features["MACD"] = ta.trend.macd_diff(df["Close"])
-    features["Stoch"] = ta.momentum.stoch(df["High"], df["Low"], df["Close"])
+    features["RSI"] = talib.RSI(df["Close"])
+    features["MACD"], features["MACD_signal"], _ = talib.MACD(df["Close"])
+    features["Stoch"], _ = talib.STOCH(df["High"], df["Low"], df["Close"])
 
     # Volatility
-    features["BB_upper"], features["BB_middle"], features["BB_lower"] = ta.volatility.bollinger_bands(df["Close"])
-    features["ATR"] = ta.volatility.average_true_range(df["High"], df["Low"], df["Close"])
+    features["BB_upper"], features["BB_middle"], features["BB_lower"] = talib.BBANDS(df["Close"])
+    features["ATR"] = talib.ATR(df["High"], df["Low"], df["Close"])
 
     # Trend Indicators
-    features["ADX"] = ta.trend.adx(df["High"], df["Low"], df["Close"])
-    features["Ichimoku_A"] = ta.trend.ichimoku_a(df["High"], df["Low"])
-    features["Ichimoku_B"] = ta.trend.ichimoku_b(df["High"], df["Low"])
+    features["ADX"] = talib.ADX(df["High"], df["Low"], df["Close"])
+    features["Ichimoku_A"] = (talib.MAX(df["High"], 9) + talib.MIN(df["Low"], 9)) / 2
+    features["Ichimoku_B"] = (talib.MAX(df["High"], 26) + talib.MIN(df["Low"], 26)) / 2
 
     # Momentum
-    features["Williams_R"] = ta.momentum.williams_r(df["High"], df["Low"], df["Close"])
-    features["CCI"] = ta.trend.cci(df["High"], df["Low"], df["Close"])
+    features["Williams_R"] = talib.WILLR(df["High"], df["Low"], df["Close"])
+    features["CCI"] = talib.CCI(df["High"], df["Low"], df["Close"])
 
     # Volume Indicators
-    features["OBV"] = ta.volume.on_balance_volume(df["Close"], df["Volume"])
-    features["VWAP"] = ta.volume.volume_weighted_average_price(df["High"], df["Low"], df["Close"], df["Volume"])
+    features["OBV"] = talib.OBV(df["Close"], df["Volume"])
+    features["VWAP"] = (df["Close"] * df["Volume"]).cumsum() / df["Volume"].cumsum()
 
     # Elliott Wave (simplified)
     features["Wave_Trend"] = (df["Close"] - df["Close"].rolling(5).mean()) / df["Close"].rolling(5).std()
 
-    # Fibonacci Retracement (simplified)
-    high = df["High"].max()
-    low = df["Low"].min()
+    # Fibonacci Retracement
+    high, low = df["High"].max(), df["Low"].min()
     features["Fib_0.618"] = low + 0.618 * (high - low)
 
     # Heikin-Ashi

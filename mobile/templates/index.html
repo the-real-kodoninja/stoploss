@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stop Loss Mobile</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background-color: #F5E8C7; color: #5C4033; font-family: Helvetica; }
+        .container { padding: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #8A7F5A; padding: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stop Loss Mobile Dashboard</h1>
+        <h2>Analytics</h2>
+        <p>Cash: ${{ analytics.cash }}</p>
+        <p>Profit: ${{ analytics.profit }}</p>
+        <h2>Watchlist</h2>
+        <ul>
+            {% for ticker in watchlist %}
+                <li>{{ ticker }}</li>
+            {% endfor %}
+        </ul>
+        <h2>Recent Trades</h2>
+        <table>
+            <tr><th>Timestamp</th><th>Ticker</th><th>Action</th><th>Price</th><th>Profit</th></tr>
+            {% for trade in trades %}
+                <tr>
+                    <td>{{ trade.Timestamp }}</td>
+                    <td>{{ trade.Ticker }}</td>
+                    <td>{{ trade.Action }}</td>
+                    <td>{{ trade.Price }}</td>
+                    <td>{{ trade.Profit }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>

@@ -1,9 +1,9 @@
-from ui.app import NimbusTraderApp
-from core.trading_logic import NimbusTraderPlatform
+from ui.app import StopLossApp
+from core.trading_logic import StopLossPlatform
 
 def main():
-    platform = NimbusTraderPlatform()
-    app = NimbusTraderApp(platform)
+    platform = StopLossPlatform()
+    app = StopLossApp(platform)
     app.mainloop()
 
 if __name__ == "__main__":
