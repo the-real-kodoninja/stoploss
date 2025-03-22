@@ -55,7 +55,7 @@ stop_loss/
 1.  **Clone the Repository:**
 
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/the-real-kodoninja/stoploss
     cd stop_loss
     ```
 
