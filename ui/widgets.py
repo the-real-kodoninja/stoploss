@@ -64,3 +64,50 @@ class WatchlistManager(tk.Frame):
         self.ticker_entry.pack(side="left", padx=5)
         tk.Button(self, text="Add", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=lambda: add_callback(self.ticker_entry.get())).pack(side="left")
         tk.Button(self, text="Remove Selected", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=remove_callback).pack(side="left", padx=5)
+
+class SettingsPanel(tk.Toplevel):
+    def __init__(self, parent, platform):
+        super().__init__(parent)
+        self.platform = platform
+        self.title("Settings")
+        self.geometry("400x400")
+        self.configure(bg=EARTH_TONES["bg"])
+
+        tk.Label(self, text="Trading Rules", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack(pady=5)
+        self.max_trades_var = tk.StringVar(value=str(MAX_TRADES))
+        tk.Label(self, text="Max Trades:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        tk.Entry(self, textvariable=self.max_trades_var, bg=EARTH_TONES["highlight"]).pack()
+
+        self.max_duration_var = tk.StringVar(value=str(MAX_TRADE_DURATION))
+        tk.Label(self, text="Max Trade Duration (s):", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        tk.Entry(self, textvariable=self.max_duration_var, bg=EARTH_TONES["highlight"]).pack()
+
+        tk.Label(self, text="Broker Management", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack(pady=5)
+        tk.Label(self, text="Broker Name:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.broker_name_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.broker_name_entry.pack()
+
+        tk.Label(self, text="API Key:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.api_key_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.api_key_entry.pack()
+
+        tk.Label(self, text="API Secret:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.api_secret_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.api_secret_entry.pack()
+
+        self.broker_type_var = tk.StringVar(value="alpaca")
+        tk.OptionMenu(self, self.broker_type_var, "alpaca", "binance").pack()
+
+        tk.Button(self, text="Add Broker", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.add_broker).pack(pady=5)
+        tk.Button(self, text="Save Rules", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.save_rules).pack(pady=5)
+
+    def add_broker(self):
+        name = self.broker_name_entry.get()
+        credentials = {"api_key": self.api_key_entry.get(), "api_secret": self.api_secret_entry.get()}
+        self.platform.add_broker(name, credentials, self.broker_type_var.get())
+        self.destroy()
+
+    def save_rules(self):
+        self.platform.update_rule("MAX_TRADES", int(self.max_trades_var.get()))
+        self.platform.update_rule("MAX_TRADE_DURATION", int(self.max_duration_var.get()))
+        self.destroy()
