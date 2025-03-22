@@ -41,18 +41,29 @@ class TradeEntryForm(tk.Frame):
         self.oco_var = tk.BooleanVar()
         tk.Checkbutton(self, text="OCO", variable=self.oco_var, bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"]).grid(row=7, column=1)
 
-        tk.Button(self, text="Buy", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.submit_buy).grid(row=8, column=0)
-        tk.Button(self, text="Short", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.submit_short).grid(row=8, column=1)
+        self.option_var = tk.BooleanVar()
+        tk.Checkbutton(self, text="Option", variable=self.option_var, bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"]).grid(row=8, column=0)
+        tk.Label(self, text="Strike:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).grid(row=9, column=0)
+        self.strike_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.strike_entry.grid(row=9, column=1)
+        tk.Label(self, text="Expiry (YYYY-MM-DD):", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).grid(row=10, column=0)
+        self.expiry_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.expiry_entry.grid(row=10, column=1)
+
+        tk.Button(self, text="Buy", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.submit_buy).grid(row=11, column=0)
+        tk.Button(self, text="Short", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.submit_short).grid(row=11, column=1)
 
     def submit_buy(self):
         self.submit_callback(self.ticker_entry.get(), int(self.shares_entry.get()), float(self.price_entry.get()), "buy",
                              self.broker_var.get(), float(self.stop_loss_entry.get()), float(self.take_profit_entry.get()),
-                             self.order_type_var.get(), self.trailing_stop_var.get(), self.oco_var.get())
+                             self.order_type_var.get(), self.trailing_stop_var.get(), self.oco_var.get(),
+                             self.option_var.get(), float(self.strike_entry.get() or 0), self.expiry_entry.get() or None)
 
     def submit_short(self):
         self.submit_callback(self.ticker_entry.get(), int(self.shares_entry.get()), float(self.price_entry.get()), "short",
                              self.broker_var.get(), float(self.stop_loss_entry.get()), float(self.take_profit_entry.get()),
-                             self.order_type_var.get(), self.trailing_stop_var.get(), self.oco_var.get())
+                             self.order_type_var.get(), self.trailing_stop_var.get(), self.oco_var.get(),
+                             self.option_var.get(), float(self.strike_entry.get() or 0), self.expiry_entry.get() or None)
 
 class Level2Display(tk.Frame):
     def __init__(self, parent):
@@ -81,7 +92,7 @@ class SettingsPanel(tk.Toplevel):
         super().__init__(parent)
         self.platform = platform
         self.title("Settings")
-        self.geometry("400x600")
+        self.geometry("400x800")
         self.configure(bg=EARTH_TONES["bg"])
 
         tk.Label(self, text="Trading Rules", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack(pady=5)
@@ -118,6 +129,20 @@ class SettingsPanel(tk.Toplevel):
         self.sell_hotkey_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
         self.sell_hotkey_entry.pack()
 
+        tk.Label(self, text="Scanner Criteria", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack(pady=5)
+        tk.Label(self, text="Min Volume:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.volume_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.volume_entry.pack()
+        tk.Label(self, text="Min Price:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.price_min_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.price_min_entry.pack()
+        tk.Label(self, text="Max Price:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.price_max_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.price_max_entry.pack()
+        tk.Label(self, text="RSI Threshold:", bg=EARTH_TONES["bg"], fg=EARTH_TONES["fg"], font=EARTH_TONES["font"]).pack()
+        self.rsi_entry = tk.Entry(self, bg=EARTH_TONES["highlight"])
+        self.rsi_entry.pack()
+
         tk.Button(self, text="Add Broker", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.add_broker).pack(pady=5)
         tk.Button(self, text="Save Settings", bg=EARTH_TONES["button_bg"], fg=EARTH_TONES["button_fg"], command=self.save_settings).pack(pady=5)
 
@@ -130,6 +155,12 @@ class SettingsPanel(tk.Toplevel):
         self.platform.update_rule("MAX_TRADES", int(self.max_trades_var.get()))
         self.platform.update_rule("MAX_TRADE_DURATION", int(self.max_duration_var.get()))
         hotkeys = {"buy": self.buy_hotkey_entry.get(), "sell": self.sell_hotkey_entry.get()}
+        scanner_criteria = {
+            "volume": int(self.volume_entry.get() or 1000000),
+            "price_min": float(self.price_min_entry.get() or 5),
+            "price_max": float(self.price_max_entry.get() or 500),
+            "rsi_threshold": float(self.rsi_entry.get() or 70)
+        }
         with open("config/settings.py", "a") as f:
-            f.write(f"\nHOTKEYS = {hotkeys}")
+            f.write(f"\nHOTKEYS = {hotkeys}\nSCANNER_CRITERIA = {scanner_criteria}")
         self.destroy()

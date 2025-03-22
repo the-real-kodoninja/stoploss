@@ -23,14 +23,14 @@ class Broker:
                     kwargs["type"] = "market"
                 if trailing_stop:
                     kwargs["type"] = "trailing_stop"
-                    kwargs["trail_percent"] = "5"  # Example 5% trailing stop
+                    kwargs["trail_percent"] = "5"
                 if oco:
                     kwargs["order_class"] = "oco"
                     kwargs["stop_loss"] = {"stop_price": price * 0.95}
                     kwargs["take_profit"] = {"limit_price": price * 1.05}
                 self.api.submit_order(**kwargs)
             elif self.broker_type == "binance":
-                self.api.order_limit_buy(symbol=ticker, quantity=shares, price=str(price))  # OCO/trailing via separate calls if needed
+                self.api.order_limit_buy(symbol=ticker, quantity=shares, price=str(price))
             self.positions[ticker] = self.positions.get(ticker, 0) + shares
             return True
         except Exception as e:
@@ -91,6 +91,43 @@ class Broker:
                 print(f"Cover failed: {e}")
                 return False
         return False
+
+    def buy_option(self, ticker, shares, price, strike, expiry, option_type="call"):
+        try:
+            if self.broker_type == "alpaca":
+                contract = self.api.get_option_contract(ticker, strike, expiry, option_type)
+                self.api.submit_order(symbol=contract.symbol, qty=shares, side="buy", type="limit", limit_price=price, time_in_force="gtc")
+                self.positions[f"{ticker}_OPT"] = shares
+                return True
+            print("Options not supported on Binance.")
+            return False
+        except Exception as e:
+            print(f"Option buy failed: {e}")
+            return False
+
+    def sell_option(self, ticker, shares, price, strike, expiry):
+        if f"{ticker}_OPT" in self.positions:
+            try:
+                if self.broker_type == "alpaca":
+                    contract = self.api.get_option_contract(ticker, strike, expiry, "call")
+                    self.api.submit_order(symbol=contract.symbol, qty=shares, side="sell", type="limit", limit_price=price, time_in_force="gtc")
+                    del self.positions[f"{ticker}_OPT"]
+                    return True
+                return False
+            except Exception as e:
+                print(f"Option sell failed: {e}")
+                return False
+        return False
+
+    def cover_option(self, ticker, shares, price, strike, expiry):
+        return self.buy_option(ticker, shares, price, strike, expiry, "put")  # Simplified for now
+
+    def get_option_value(self, ticker, strike, expiry):
+        if self.broker_type == "alpaca":
+            contract = self.api.get_option_contract(ticker, strike, expiry, "call")
+            quote = self.api.get_latest_quote(contract.symbol)
+            return (quote.bidprice + quote.askprice) / 2 * 100  # Per contract value
+        return 0
 
     def get_account_info(self):
         if self.broker_type == "alpaca":
