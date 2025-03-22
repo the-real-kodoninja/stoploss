@@ -1,56 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Stop Loss Mobile</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stop Loss Mobile</title>
 </head>
-<body>
-    <div class="container">
-        <h1>Stop Loss Mobile Dashboard</h1>
-        
-        <h2>Analytics</h2>
-        <p>Cash: <span id="cash">$0</span></p>
-        <p>Profit: <span id="profit">$0</span></p>
-        <p>Active Trades: <span id="active_trades">0</span></p>
-
-        <h2>Watchlist</h2>
-        <table id="watchlist">
-            <tr><th>Ticker</th><th>Price</th><th>Action</th></tr>
-            {% for ticker in watchlist %}
-                <tr><td>{{ ticker }}</td><td id="price_{{ ticker }}"></td><td><a href="/trade/{{ ticker }}">Details</a></td></tr>
-            {% endfor %}
-        </table>
-
-        <h2>Recent Trades</h2>
-        <table id="trades">
-            <tr><th>Timestamp</th><th>Ticker</th><th>Action</th><th>Price</th><th>Profit</th></tr>
-        </table>
-
-        <button onclick="location.reload()">Refresh</button>
-        <button onclick="alert('Nimbus.AI is running autonomously')">Nimbus.AI Status</button>
-    </div>
-
-    <script>
-        const socket = io();
-        socket.on("update", data => {
-            document.getElementById("cash").innerText = `$${data.analytics.cash.toFixed(2)}`;
-            document.getElementById("profit").innerText = `$${data.analytics.profit.toFixed(2)}`;
-            document.getElementById("active_trades").innerText = data.analytics.active_trades;
-            
-            const tradesTable = document.getElementById("trades");
-            tradesTable.innerHTML = "<tr><th>Timestamp</th><th>Ticker</th><th>Action</th><th>Price</th><th>Profit</th></tr>";
-            data.trades.forEach(trade => {
-                const row = tradesTable.insertRow();
-                row.innerHTML = `<td>${trade.Timestamp}</td><td>${trade.Ticker}</td><td>${trade.Action}</td><td>${trade.Price}</td><td>${trade.Profit || ""}</td>`;
-            });
-
-            Object.keys(data.watchlist).forEach(ticker => {
-                document.getElementById(`price_${ticker}`).innerText = `$${data.watchlist[ticker].toFixed(2)}`;
-            });
-        });
-    </script>
+<body class="bg-beige text-brown">
+  <div id="root"></div>
+  <script src="/bundle.js"></script>
 </body>
 </html>

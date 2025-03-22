@@ -5,7 +5,7 @@ from core.data_feed import fetch_data, fetch_level2_data, fetch_news
 from core.trading_logic import StopLossPlatform
 import threading
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="static")
 socketio = SocketIO(app)
 platform = StopLossPlatform()
 
@@ -22,15 +22,15 @@ def update_clients():
         socketio.sleep(1)
 
 @app.route('/')
-def dashboard():
-    return render_template("index.html", watchlist=platform.watchlist)
+def index():
+    return render_template("index.html")
 
 @app.route('/trade/<ticker>')
 def trade_details(ticker):
-    df = fetch_data(ticker).tail(50)
+    df = fetch_data(ticker).tail(50).to_json(orient="records")
     l2 = fetch_level2_data(ticker)
     news = fetch_news(ticker)
-    return render_template("trade.html", ticker=ticker, price=df["Close"].iloc[-1], l2=l2, news=news)
+    return jsonify({"df": df, "l2": l2, "news": news, "ticker": ticker})
 
 @socketio.on("connect")
 def handle_connect():
